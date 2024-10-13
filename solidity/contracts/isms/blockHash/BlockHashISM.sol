@@ -5,7 +5,8 @@ pragma solidity >=0.8.0;
 import {IBlockHashOracle} from "../../interfaces/IBlockHashOracle.sol";
 import {IInterchainSecurityModule} from "../../interfaces/IInterchainSecurityModule.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {MPTProof, RLPReader} from "../../libs/MPTProof.sol";
+import {MerklePatriciaTrie, RLPReader} from "../../libs/MerklePatriciaTrie.sol";
+import {BlockHashIsmMetadata} from "../libs/BlockHashIsmMetadata.sol";
 
 import {console} from "forge-std/console.sol";
 
@@ -29,32 +30,30 @@ contract BlockHashISM is IInterchainSecurityModule, Ownable {
         (
             bytes memory mptKey,
             bytes memory proof,
-            bytes memory blockHeaderRlp
-        ) = abi.decode(_metadata, (bytes, bytes, bytes));
+            bytes memory blockHeaderRlp,
+            uint256 logIndex
+        ) = abi.decode(_metadata, (bytes, bytes, bytes, uint256));
 
         RLPReader.RLPItem[] memory blockHeader = blockHeaderRlp
-            .toRlpItem()
-            .toList();
-        // bytes32 receiptRoot = bytes32(blockHeader[5].toBytes());
-        bytes32 receiptRoot = hex"264f24611af850a076da1e34a2ac976c7e671ba226d36b6ddaefa94319bab2cb";
-        uint256 blockHeight = blockHeader[8].toUint();
+            .toRLPItem()
+            .readList();
+        bytes32 receiptRoot = bytes32(blockHeader[5].readBytes());
+        uint256 blockHeight = blockHeader[8].readUint256();
 
         if (keccak256(blockHeaderRlp) != _getOracleBlockHash(blockHeight))
             revert InvalidBlockHash();
 
-        bytes memory recoveredMessage = MPTProof.verifyRLPProof(
+        (bool exists, bytes memory recoveredTxReceipt) = MerklePatriciaTrie.get(
+            mptKey,
             proof,
-            receiptRoot,
-            bytes32(mptKey)
+            receiptRoot
         );
 
-        return _isEqual(recoveredMessage, _message);
-    }
-
-    function rlpReader(bytes memory _rlp) external view {
-        console.log(_rlp.length);
-        RLPReader.RLPItem memory decoded = _rlp.toRlpItem();
-        console.logBytes(decoded.toBytes());
+        bytes memory recoveredMessage = BlockHashIsmMetadata.getDispatchMessage(
+            recoveredTxReceipt,
+            logIndex
+        );
+        return exists && _isEqual(recoveredMessage, _message);
     }
 
     function moduleType() external pure returns (uint8) {
@@ -76,6 +75,12 @@ contract BlockHashISM is IInterchainSecurityModule, Ownable {
         uint256 _height
     ) internal view returns (bytes32) {
         return bytes32(blockHashOracle.blockHash(_height));
+    }
+
+    function _getMessageFromLog(
+        bytes memory _log
+    ) internal pure returns (bytes memory) {
+        return abi.decode(_log, (bytes));
     }
 
     function _isEqual(
