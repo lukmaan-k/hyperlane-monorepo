@@ -321,7 +321,7 @@ library MerklePatriciaTrie {
                     revert("Received a node with an unknown prefix");
                 }
             } else {
-                revert("Received an unparseable node.");
+                revert("Received an unparsable node.");
             }
         }
 
