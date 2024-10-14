@@ -3,12 +3,12 @@ pragma solidity >=0.8.0;
 
 import "forge-std/Script.sol";
 
-import {Mailbox} from "../../contracts/Mailbox.sol";
-import {TypeCasts} from "../../contracts/libs/TypeCasts.sol";
-import {ArbL2ToL1Hook} from "../../contracts/hooks/ArbL2ToL1Hook.sol";
-import {ArbL2ToL1Ism} from "../../contracts/isms/hook/ArbL2ToL1Ism.sol";
-import {TestRecipient} from "../../contracts/test/TestRecipient.sol";
-import {TestIsm} from "../../contracts/test/TestIsm.sol";
+import {Mailbox} from "../contracts/Mailbox.sol";
+import {TypeCasts} from "../contracts/libs/TypeCasts.sol";
+import {ArbL2ToL1Hook} from "../contracts/hooks/ArbL2ToL1Hook.sol";
+import {ArbL2ToL1Ism} from "../contracts/isms/hook/ArbL2ToL1Ism.sol";
+import {TestRecipient} from "../contracts/test/TestRecipient.sol";
+import {TestIsm} from "../contracts/test/TestIsm.sol";
 
 contract DeployArbHook is Script {
     uint256 deployerPrivateKey;
