@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity >=0.8.0;
 
-// ============ Internal Imports ============
 import {IBlockHashOracle} from "../../interfaces/IBlockHashOracle.sol";
 import {IInterchainSecurityModule} from "../../interfaces/IInterchainSecurityModule.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {MerklePatriciaTrie, RLPReader} from "../../libs/MerklePatriciaTrie.sol";
 import {BlockHashIsmMetadata} from "../libs/BlockHashIsmMetadata.sol";
 
-import {console} from "forge-std/console.sol";
-
 contract BlockHashISM is IInterchainSecurityModule, Ownable {
     using RLPReader for bytes;
     using RLPReader for RLPReader.RLPItem;
+    using BlockHashIsmMetadata for bytes;
+
+    // Dencun block format
+    uint256 constant RECEIPT_ROOT_INDEX = 5;
+    uint256 constant BLOCK_HEIGHT_INDEX = 8;
 
     IBlockHashOracle internal blockHashOracle;
 
@@ -37,10 +39,12 @@ contract BlockHashISM is IInterchainSecurityModule, Ownable {
         RLPReader.RLPItem[] memory blockHeader = blockHeaderRlp
             .toRLPItem()
             .readList();
-        bytes32 receiptRoot = bytes32(blockHeader[5].readBytes());
-        uint256 blockHeight = blockHeader[8].readUint256();
+        bytes32 receiptRoot = bytes32(
+            blockHeader[RECEIPT_ROOT_INDEX].readBytes()
+        );
+        uint256 blockHeight = blockHeader[BLOCK_HEIGHT_INDEX].readUint256();
 
-        if (keccak256(blockHeaderRlp) != _getOracleBlockHash(blockHeight))
+        if (keccak256(blockHeaderRlp) != _getBlockHashFromOracle(blockHeight))
             revert InvalidBlockHash();
 
         (bool exists, bytes memory recoveredTxReceipt) = MerklePatriciaTrie.get(
@@ -49,8 +53,7 @@ contract BlockHashISM is IInterchainSecurityModule, Ownable {
             receiptRoot
         );
 
-        bytes memory recoveredMessage = BlockHashIsmMetadata.getDispatchMessage(
-            recoveredTxReceipt,
+        bytes memory recoveredMessage = recoveredTxReceipt.getDispatchMessage(
             logIndex
         );
         return exists && _isEqual(recoveredMessage, _message);
@@ -71,7 +74,7 @@ contract BlockHashISM is IInterchainSecurityModule, Ownable {
      * @param _height The block height.
      * @return The block hash.
      */
-    function _getOracleBlockHash(
+    function _getBlockHashFromOracle(
         uint256 _height
     ) internal view returns (bytes32) {
         return bytes32(blockHashOracle.blockHash(_height));

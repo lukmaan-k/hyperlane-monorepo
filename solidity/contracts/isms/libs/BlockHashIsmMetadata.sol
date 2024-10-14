@@ -3,8 +3,13 @@ pragma solidity >=0.8.0;
 
 import {RLPReader} from "../../libs/RLPReader.sol";
 
-import {console} from "forge-std/console.sol";
-
+/**
+ * Format of metadata:
+ * [??:??] RLP encoded transaction index
+ * [??:??] RLP encoded MPT proof: Stack of nodes starting from the root. Each node is also RLP encoded
+ * [??:??] RLP encoded block header
+ * [??:??] Log index for Dispatch event from Mailbox
+ */
 library BlockHashIsmMetadata {
     using RLPReader for bytes;
     using RLPReader for RLPReader.RLPItem;
@@ -25,15 +30,16 @@ library BlockHashIsmMetadata {
     ) internal pure returns (bytes memory) {
         bytes memory logMessage = receipt
         .toRLPItem()
-        .readList()[3]
+        .readList()[3] // 0 = statuscode, 1 = cumulativeGasUsed, 2 = bloom, 3 = logs
         .readList()[logIndex]
-        .readList()[2].readBytes();
+        .readList()[2].readBytes(); // 0 = address, 1 = topics, 2 = data
         return abi.decode(logMessage, (bytes));
     }
 
     /*
      * @dev Hyperlane Message format is guaranteed to give receipt payload of
-     * larger than 55 bytes, resulting in first byte of at least 0xf7
+     * larger than 55 bytes, resulting in first byte of at least 0xf7 for the relp
+     * encoded receipt payload
      * Non-legacy tx types (1, 2, 3) have their (rlp encoded) type concatenated
      * to start of receipt
      * Can safely assume if first byte is less than 0xf7, it is a legacy receipt
