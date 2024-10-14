@@ -63,7 +63,6 @@ library BlockHashIsmMetadata {
             mstore(result, len)
             let dataPtr := add(data, 0x21)
             let resultPtr := add(result, 0x20)
-            mstore(result, len)
             for {
                 let i := 0
             } lt(i, len) {
